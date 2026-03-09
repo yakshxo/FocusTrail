@@ -7,45 +7,29 @@ import {
   Alert,
   TouchableOpacity,
   ScrollView,
+  Platform,
+  Linking,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
+import { auth } from "../../firebase";
+import { fetchNearbyStudyPlaces } from "../services/placesService";
+import { getUserSessionsFromFirestore } from "../services/sessionService";
 
 export default function MapScreen() {
   const mapRef = useRef(null);
   const [userLocation, setUserLocation] = useState(null);
   const [locationLabel, setLocationLabel] = useState("Fetching location...");
   const [loading, setLoading] = useState(true);
-
-  const [studySpots] = useState([
-    {
-      id: "1",
-      title: "Killam Library",
-      description: "Quiet study environment",
-      latitude: 44.6376,
-      longitude: -63.5925,
-    },
-    {
-      id: "2",
-      title: "Student Union Building",
-      description: "Good for group study",
-      latitude: 44.6388,
-      longitude: -63.5786,
-    },
-    {
-      id: "3",
-      title: "Halifax Central Library",
-      description: "Strong individual study spot",
-      latitude: 44.6445,
-      longitude: -63.5746,
-    },
-  ]);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const [savedStudyMarkers, setSavedStudyMarkers] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState(null);
 
   useEffect(() => {
-    fetchLocation();
+    fetchLocationAndData();
   }, []);
 
-  const fetchLocation = async () => {
+  const fetchLocationAndData = async () => {
     try {
       setLoading(true);
 
@@ -61,7 +45,7 @@ export default function MapScreen() {
       }
 
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
       });
 
       const currentRegion = {
@@ -71,31 +55,91 @@ export default function MapScreen() {
         longitudeDelta: 0.01,
       };
 
+      // Show the map immediately — don't wait for places/sessions
       setUserLocation(currentRegion);
-
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-
-      if (reverseGeocode.length > 0) {
-        const place = reverseGeocode[0];
-        const readableLocation = `${place.city || ""}, ${place.region || ""}, ${place.country || ""}`.trim();
-        setLocationLabel(readableLocation || "Current location");
-      } else {
-        setLocationLabel("Current location");
-      }
+      setLoading(false);
 
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.animateToRegion(currentRegion, 1000);
         }
       }, 300);
+
+      // Load everything else in parallel in the background
+      const [reverseGeocode, fetchedPlaces, sessions] = await Promise.allSettled([
+        Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        }),
+        fetchNearbyStudyPlaces(location.coords.latitude, location.coords.longitude),
+        auth.currentUser
+          ? getUserSessionsFromFirestore(auth.currentUser.uid)
+          : Promise.resolve([]),
+      ]);
+
+      if (reverseGeocode.status === "fulfilled" && reverseGeocode.value.length > 0) {
+        const place = reverseGeocode.value[0];
+        const readableLocation = `${place.city || ""}, ${place.region || ""}, ${place.country || ""}`.trim();
+        setLocationLabel(readableLocation || "Current location");
+      } else {
+        setLocationLabel("Current location");
+      }
+
+      if (fetchedPlaces.status === "fulfilled") {
+        setNearbyPlaces(fetchedPlaces.value);
+      }
+
+      if (sessions.status === "fulfilled") {
+        const uniqueMarkers = sessions.value
+          .filter((session) => session.coords?.latitude && session.coords?.longitude)
+          .reduce((acc, session) => {
+            const key = `${session.coords.latitude.toFixed(4)}-${session.coords.longitude.toFixed(4)}`;
+            if (!acc.find((item) => item.key === key)) {
+              acc.push({
+                key,
+                title: session.locationName || "Saved Study Session",
+                description: `Focus: ${session.focusRating || "N/A"}`,
+                latitude: session.coords.latitude,
+                longitude: session.coords.longitude,
+              });
+            }
+            return acc;
+          }, []);
+        setSavedStudyMarkers(uniqueMarkers);
+      }
     } catch (error) {
-      console.log("Map location error:", error);
-      Alert.alert("Error", "Unable to fetch your current location.");
-    } finally {
+      console.log("Map location/API error:", error);
+      Alert.alert("Error", "Unable to fetch map data.");
       setLoading(false);
+    }
+  };
+
+  const handleNavigate = async () => {
+    if (!selectedPlace) {
+      Alert.alert("No Place Selected", "Please select a study place first.");
+      return;
+    }
+
+    const { latitude, longitude, title } = selectedPlace;
+
+    const url =
+      Platform.OS === "ios"
+        ? `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=w`
+        : `google.navigation:q=${latitude},${longitude}`;
+
+    const webFallback = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(webFallback);
+      }
+    } catch (error) {
+      console.log("Navigation error:", error);
+      Alert.alert("Navigation Error", `Could not open directions to ${title}.`);
     }
   };
 
@@ -115,7 +159,7 @@ export default function MapScreen() {
         <Text style={styles.subText}>
           Please enable location permissions and try refreshing.
         </Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={fetchLocation}>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchLocationAndData}>
           <Text style={styles.refreshButtonText}>Retry Location</Text>
         </TouchableOpacity>
       </View>
@@ -126,7 +170,7 @@ export default function MapScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Study Map</Text>
       <Text style={styles.subtitle}>
-        View your live location and nearby study spots.
+        View your live location, nearby study spots, and saved study markers.
       </Text>
 
       <MapView
@@ -146,7 +190,7 @@ export default function MapScreen() {
           pinColor="blue"
         />
 
-        {studySpots.map((spot) => (
+        {nearbyPlaces.map((spot) => (
           <Marker
             key={spot.id}
             coordinate={{
@@ -155,6 +199,22 @@ export default function MapScreen() {
             }}
             title={spot.title}
             description={spot.description}
+            pinColor="green"
+            onPress={() => setSelectedPlace(spot)}
+          />
+        ))}
+
+        {savedStudyMarkers.map((spot) => (
+          <Marker
+            key={spot.key}
+            coordinate={{
+              latitude: spot.latitude,
+              longitude: spot.longitude,
+            }}
+            title={spot.title}
+            description={spot.description}
+            pinColor="red"
+            onPress={() => setSelectedPlace(spot)}
           />
         ))}
       </MapView>
@@ -166,18 +226,61 @@ export default function MapScreen() {
           Lat: {userLocation.latitude.toFixed(4)} | Lng: {userLocation.longitude.toFixed(4)}
         </Text>
 
-        <TouchableOpacity style={styles.refreshButton} onPress={fetchLocation}>
-          <Text style={styles.refreshButtonText}>Refresh Location</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchLocationAndData}>
+          <Text style={styles.refreshButtonText}>Refresh Map Data</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Nearby Study Spots</Text>
-        {studySpots.map((spot) => (
-          <Text key={spot.id} style={styles.spotItem}>
-            • {spot.title}
+        <Text style={styles.infoTitle}>Selected Place</Text>
+        {selectedPlace ? (
+          <>
+            <Text style={styles.infoText}>{selectedPlace.title}</Text>
+            <Text style={styles.spotItem}>{selectedPlace.description}</Text>
+
+            <TouchableOpacity style={styles.navigateButton} onPress={handleNavigate}>
+              <Text style={styles.navigateButtonText}>Navigate to Place</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <Text style={styles.spotItem}>
+            Tap a marker on the map to view details and navigate.
           </Text>
-        ))}
+        )}
+      </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>Nearby Study Places</Text>
+        {nearbyPlaces.length > 0 ? (
+          nearbyPlaces.map((spot) => (
+            <TouchableOpacity
+              key={spot.id}
+              onPress={() => setSelectedPlace(spot)}
+              style={styles.placeRow}
+            >
+              <Text style={styles.spotItem}>• {spot.title}</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.spotItem}>No nearby places found.</Text>
+        )}
+      </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>Saved Study Location Markers</Text>
+        {savedStudyMarkers.length > 0 ? (
+          savedStudyMarkers.map((spot) => (
+            <TouchableOpacity
+              key={spot.key}
+              onPress={() => setSelectedPlace(spot)}
+              style={styles.placeRow}
+            >
+              <Text style={styles.spotItem}>• {spot.title}</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.spotItem}>No saved study locations yet.</Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -237,6 +340,9 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 6,
   },
+  placeRow: {
+    paddingVertical: 4,
+  },
   refreshButton: {
     backgroundColor: "#2e6ef7",
     paddingVertical: 12,
@@ -247,6 +353,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   refreshButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  navigateButton: {
+    backgroundColor: "#111",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: "center",
+    alignSelf: "flex-start",
+    marginTop: 10,
+  },
+  navigateButtonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 14,

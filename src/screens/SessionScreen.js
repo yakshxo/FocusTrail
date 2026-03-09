@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import { auth } from "../../firebase";
+import { saveStudySessionToFirestore } from "../services/sessionService";
 
 const ACTIVE_SESSION_KEY = "activeStudySession";
 const SAVED_SESSIONS_KEY = "savedStudySessions";
@@ -64,6 +66,7 @@ export default function SessionScreen() {
         setDistractions(parsed.distractions || "");
         setGoalMet(parsed.goalMet ?? null);
         setLocationName(parsed.locationName || "Unknown location");
+        setCoords(parsed.coords || null);
       }
     } catch (error) {
       console.log("Error loading saved session:", error);
@@ -79,6 +82,7 @@ export default function SessionScreen() {
         distractions,
         goalMet,
         locationName,
+        coords,
       };
       await AsyncStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(sessionData));
     } catch (error) {
@@ -103,7 +107,10 @@ export default function SessionScreen() {
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
       setCoords(location.coords);
 
       const reverseGeocode = await Location.reverseGeocodeAsync({
@@ -172,13 +179,16 @@ export default function SessionScreen() {
     try {
       const existingSessions = await AsyncStorage.getItem(SAVED_SESSIONS_KEY);
       const parsedSessions = existingSessions ? JSON.parse(existingSessions) : [];
-
       const updatedSessions = [...parsedSessions, sessionSummary];
 
       await AsyncStorage.setItem(
         SAVED_SESSIONS_KEY,
         JSON.stringify(updatedSessions)
       );
+
+      if (auth.currentUser) {
+        await saveStudySessionToFirestore(auth.currentUser.uid, sessionSummary);
+      }
 
       await clearSavedSession();
 
@@ -191,6 +201,8 @@ export default function SessionScreen() {
       setFocusRating("");
       setDistractions("");
       setGoalMet(null);
+      setCoords(null);
+      getCurrentLocation();
     } catch (error) {
       console.log("Error saving completed session:", error);
       Alert.alert("Error", "Could not save session.");
