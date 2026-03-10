@@ -46,7 +46,7 @@ export default function SessionScreen() {
 
   useEffect(() => {
     saveSessionLocally();
-  }, [seconds, isRunning, focusRating, distractions, goalMet, locationName]);
+  }, [seconds, isRunning, focusRating, distractions, goalMet, locationName, coords]);
 
   const formattedTime = useMemo(() => {
     const hrs = String(Math.floor(seconds / 3600)).padStart(2, "0");
@@ -176,6 +176,9 @@ export default function SessionScreen() {
       endedAt: new Date().toISOString(),
     };
 
+    console.log("Session summary to save:", sessionSummary);
+    console.log("Authenticated user object:", auth.currentUser);
+
     try {
       const existingSessions = await AsyncStorage.getItem(SAVED_SESSIONS_KEY);
       const parsedSessions = existingSessions ? JSON.parse(existingSessions) : [];
@@ -186,8 +189,19 @@ export default function SessionScreen() {
         JSON.stringify(updatedSessions)
       );
 
-      if (auth.currentUser) {
-        await saveStudySessionToFirestore(auth.currentUser.uid, sessionSummary);
+      console.log("Saved session to AsyncStorage successfully");
+
+      if (auth.currentUser && auth.currentUser.uid) {
+        console.log("Attempting Firestore save for user:", auth.currentUser.uid);
+
+        const firestoreDocId = await saveStudySessionToFirestore(
+          auth.currentUser.uid,
+          sessionSummary
+        );
+
+        console.log("Firestore save successful. Document ID:", firestoreDocId);
+      } else {
+        console.log("No authenticated user found. Firestore save skipped.");
       }
 
       await clearSavedSession();
@@ -205,7 +219,7 @@ export default function SessionScreen() {
       getCurrentLocation();
     } catch (error) {
       console.log("Error saving completed session:", error);
-      Alert.alert("Error", "Could not save session.");
+      Alert.alert("Error", `Could not save session: ${error.message}`);
     }
   };
 
