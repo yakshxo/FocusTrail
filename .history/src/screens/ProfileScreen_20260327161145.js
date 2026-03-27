@@ -229,14 +229,14 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Coming Next</Text>
+        <Text style={styles.label}>Tasks Left / Coming Next</Text>
         <Text style={styles.item}>• Camera feature for study spot photos</Text>
         <Text style={styles.item}>• Review system for study locations</Text>
         <Text style={styles.item}>• Ratings (coffee, noise, seating, power outlets)</Text>
         <Text style={styles.item}>• Dedicated favorites feature (save preferred spots)</Text>
         <Text style={styles.item}>• Advanced productivity analytics</Text>
       </View>
-
+      
       <TouchableOpacity style={styles.primaryButton} onPress={loadProfileData}>
         <Text style={styles.primaryButtonText}>Refresh Profile Data</Text>
       </TouchableOpacity>

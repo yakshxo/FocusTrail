@@ -114,7 +114,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
+      
       {/*  Motivational Quote */}
     <View style={styles.quoteContainer}>
     <Text style={styles.quoteMark}>“</Text>
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-quoteContainer: {
+  quoteContainer: {
   marginBottom: 20,
   paddingVertical: 10,
   paddingHorizontal: 6,

@@ -228,15 +228,6 @@ export default function ProfileScreen() {
         <Text style={styles.featureItem}>• Password reset by email working</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Coming Next</Text>
-        <Text style={styles.item}>• Camera feature for study spot photos</Text>
-        <Text style={styles.item}>• Review system for study locations</Text>
-        <Text style={styles.item}>• Ratings (coffee, noise, seating, power outlets)</Text>
-        <Text style={styles.item}>• Dedicated favorites feature (save preferred spots)</Text>
-        <Text style={styles.item}>• Advanced productivity analytics</Text>
-      </View>
-
       <TouchableOpacity style={styles.primaryButton} onPress={loadProfileData}>
         <Text style={styles.primaryButtonText}>Refresh Profile Data</Text>
       </TouchableOpacity>

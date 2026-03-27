@@ -191,9 +191,9 @@ const styles = StyleSheet.create({
   },
 
 quoteContainer: {
-  marginBottom: 20,
+  marginTop: 10,
+  marginBottom: 24,
   paddingVertical: 10,
-  paddingHorizontal: 6,
   alignItems: "center",
 },
 

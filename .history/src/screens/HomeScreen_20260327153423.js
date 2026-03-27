@@ -3,16 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
   ScrollView,
   ActivityIndicator,
 } from "react-native";
 import { auth } from "../../firebase";
 import { getUserSessionsFromFirestore } from "../services/sessionService";
-import { getRandomQuote } from "../utils/quotes";
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
-  const [quote, setQuote] = useState("");
   const [summary, setSummary] = useState({
     totalSessions: 0,
     totalMinutes: 0,
@@ -22,7 +21,6 @@ export default function HomeScreen() {
   });
 
   useEffect(() => {
-    setQuote(getRandomQuote()); // 🎯 random quote on load
     loadHomeData();
   }, []);
 
@@ -30,11 +28,29 @@ export default function HomeScreen() {
     try {
       setLoading(true);
 
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        setSummary({
+          totalSessions: 0,
+          totalMinutes: 0,
+          averageFocus: 0,
+          bestEnvironment: "No data yet",
+          recentLocation: "No sessions yet",
+        });
+        return;
+      }
 
       const sessions = await getUserSessionsFromFirestore(auth.currentUser.uid);
 
-      if (!sessions.length) return;
+      if (!sessions.length) {
+        setSummary({
+          totalSessions: 0,
+          totalMinutes: 0,
+          averageFocus: 0,
+          bestEnvironment: "No data yet",
+          recentLocation: "No sessions yet",
+        });
+        return;
+      }
 
       const totalSessions = sessions.length;
 
@@ -49,27 +65,27 @@ export default function HomeScreen() {
 
       const environmentScores = {};
       sessions.forEach((session) => {
-        const env = session.environment || session.locationName || "Unknown";
+        const environment = session.environment || session.locationName || "Unknown";
 
-        if (!environmentScores[env]) {
-          environmentScores[env] = { total: 0, count: 0 };
+        if (!environmentScores[environment]) {
+          environmentScores[environment] = { total: 0, count: 0 };
         }
 
-        environmentScores[env].total += session.focusRating || 0;
-        environmentScores[env].count += 1;
+        environmentScores[environment].total += session.focusRating || 0;
+        environmentScores[environment].count += 1;
       });
 
       let bestEnvironment = "No data yet";
       let bestScore = -1;
 
-      Object.keys(environmentScores).forEach((env) => {
+      Object.keys(environmentScores).forEach((environment) => {
         const avg =
-          environmentScores[env].total /
-          environmentScores[env].count;
+          environmentScores[environment].total /
+          environmentScores[environment].count;
 
         if (avg > bestScore) {
           bestScore = avg;
-          bestEnvironment = env;
+          bestEnvironment = environment;
         }
       });
 
@@ -93,14 +109,18 @@ export default function HomeScreen() {
   const formatMinutes = (minutes) => {
     if (!minutes || minutes <= 0) return "0 min";
 
-    if (minutes < 60) return `${minutes} min`;
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
 
     const hours = Math.floor(minutes / 60);
-    const remaining = minutes % 60;
+    const remainingMinutes = minutes % 60;
 
-    return remaining === 0
-      ? `${hours} hr`
-      : `${hours} hr ${remaining} min`;
+    if (remainingMinutes === 0) {
+      return `${hours} hr`;
+    }
+
+    return `${hours} hr ${remainingMinutes} min`;
   };
 
   if (loading) {
@@ -114,48 +134,68 @@ export default function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
-      {/*  Motivational Quote */}
-    <View style={styles.quoteContainer}>
-    <Text style={styles.quoteMark}>“</Text>
-    <Text style={styles.quoteText}>{quote}</Text>
-    <View style={styles.quoteDivider} />
-    </View>
-
+      <Text style={styles.heading}>Welcome Back!</Text>
       <Text style={styles.subheading}>
-        Track your study sessions and discover what helps you focus best.
+        Track your study sessions and discover which environments help you focus best.
       </Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Total Study Time</Text>
-        <Text style={styles.cardValue}>
-          {formatMinutes(summary.totalMinutes)}
-        </Text>
+        <Text style={styles.cardValue}>{formatMinutes(summary.totalMinutes)}</Text>
+        <Text style={styles.cardNote}>Total recorded time across all sessions</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Sessions Completed</Text>
         <Text style={styles.cardValue}>{summary.totalSessions}</Text>
+        <Text style={styles.cardNote}>Total number of saved study sessions</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Average Focus</Text>
         <Text style={styles.cardValue}>{summary.averageFocus} / 5</Text>
+        <Text style={styles.cardNote}>Calculated from all recorded sessions</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Best Environment</Text>
-        <Text style={styles.cardValueSmall}>
-          {summary.bestEnvironment}
-        </Text>
+        <Text style={styles.cardValueSmall}>{summary.bestEnvironment}</Text>
+        <Text style={styles.cardNote}>Highest average focus score</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Most Recent Location</Text>
-        <Text style={styles.cardValueSmall}>
-          {summary.recentLocation}
-        </Text>
+        <Text style={styles.cardValueSmall}>{summary.recentLocation}</Text>
+        <Text style={styles.cardNote}>Latest saved study location</Text>
       </View>
+
+      <TouchableOpacity
+        style={styles.primaryButton}
+        onPress={() => navigation.navigate("Session")}
+      >
+        <Text style={styles.primaryButtonText}>Start Study Session</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate("Map")}
+      >
+        <Text style={styles.secondaryButtonText}>View Study Map</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate("Stats")}
+      >
+        <Text style={styles.secondaryButtonText}>See Stats & Insights</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={loadHomeData}
+      >
+        <Text style={styles.secondaryButtonText}>Refresh Dashboard</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -181,44 +221,15 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
     marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 8,
     color: "#111",
   },
   subheading: {
     fontSize: 16,
     color: "#666",
-    marginBottom: 20,
+    marginBottom: 24,
+    lineHeight: 22,
   },
-
-quoteContainer: {
-  marginBottom: 20,
-  paddingVertical: 10,
-  paddingHorizontal: 6,
-  alignItems: "center",
-},
-
-quoteMark: {
-  fontSize: 40,
-  color: "#2e6ef7",
-  opacity: 0.2,
-  marginBottom: -10,
-},
-quoteText: {
-  fontSize: 16,
-  fontStyle: "italic",
-  color: "#333",
-  textAlign: "center",
-  lineHeight: 24,
-  paddingHorizontal: 10,
-},
-quoteDivider: {
-  height: 1,
-  backgroundColor: "#e0e0e0",
-  marginVertical: 12,
-  width: "60%",
-  alignSelf: "center",
-},
-
   card: {
     backgroundColor: "#fff",
     padding: 18,
@@ -236,10 +247,43 @@ quoteDivider: {
     fontSize: 22,
     fontWeight: "bold",
     color: "#111",
+    marginBottom: 4,
   },
   cardValueSmall: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#111",
+    marginBottom: 4,
+  },
+  cardNote: {
+    fontSize: 13,
+    color: "#888",
+  },
+  primaryButton: {
+    backgroundColor: "#2e6ef7",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  secondaryButton: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#d9d9d9",
+  },
+  secondaryButtonText: {
+    color: "#222",
+    fontWeight: "600",
+    fontSize: 15,
   },
 });

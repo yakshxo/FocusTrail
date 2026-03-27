@@ -173,65 +173,71 @@ export default function MapScreen() {
   };
 
   const openAppleMaps = async (place) => {
-  try {
     const url = `http://maps.apple.com/?daddr=${place.latitude},${place.longitude}&dirflg=w`;
     await Linking.openURL(url);
-  } catch (error) {
-    Alert.alert("Error", "Could not open Apple Maps.");
-  }
-};
+  };
 
-const openGoogleMaps = async (place) => {
-  const iosUrl = `comgooglemaps://?daddr=${place.latitude},${place.longitude}&directionsmode=walking`;
-  const webFallback = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
+  const openGoogleMaps = async (place) => {
+    const iosUrl = `comgooglemaps://?daddr=${place.latitude},${place.longitude}&directionsmode=walking`;
+    const webFallback = `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`;
 
-  try {
     if (Platform.OS === "ios") {
-      try {
+      const canOpenGoogle = await Linking.canOpenURL(iosUrl);
+      if (canOpenGoogle) {
         await Linking.openURL(iosUrl);
-      } catch (error) {
+      } else {
         await Linking.openURL(webFallback);
       }
       return;
     }
 
+    // Android: usually triggers installed maps app / chooser
     const androidGeoUrl = `geo:0,0?q=${place.latitude},${place.longitude}(${encodeURIComponent(
       place.title
     )})`;
+    const canOpenGeo = await Linking.canOpenURL(androidGeoUrl);
 
-    try {
+    if (canOpenGeo) {
       await Linking.openURL(androidGeoUrl);
-    } catch (error) {
+    } else {
       await Linking.openURL(webFallback);
     }
-  } catch (error) {
-    Alert.alert("Error", "Could not open Google Maps.");
-  }
-};
+  };
 
-const handlePlacePress = async (place) => {
-  focusOnPlace(place);
+  const handlePlacePress = async (place) => {
+    focusOnPlace(place);
 
-  if (Platform.OS === "ios") {
-    Alert.alert(place.title, "Choose an app for navigation", [
-      {
-        text: "Apple Maps",
-        onPress: () => openAppleMaps(place),
-      },
-      {
-        text: "Google Maps",
-        onPress: () => openGoogleMaps(place),
-      },
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-    ]);
-    return;
-  }
+    if (Platform.OS === "ios") {
+      const googleUrl = `comgooglemaps://?daddr=${place.latitude},${place.longitude}&directionsmode=walking`;
+      const hasGoogleMaps = await Linking.canOpenURL(googleUrl);
 
-  await openGoogleMaps(place);
-};
+      const buttons = [
+        {
+          text: "Apple Maps",
+          onPress: () => openAppleMaps(place),
+        },
+      ];
+
+      if (hasGoogleMaps) {
+        buttons.push({
+          text: "Google Maps",
+          onPress: () => openGoogleMaps(place),
+        });
+      }
+
+      buttons.push({ text: "Cancel", style: "cancel" });
+
+      Alert.alert(
+        place.title,
+        "Choose an app for navigation",
+        buttons
+      );
+      return;
+    }
+
+    // Android: try to use system maps chooser behavior
+    await openGoogleMaps(place);
+  };
 
   const formatDistance = (distanceKm) => {
     if (distanceKm < 1) {

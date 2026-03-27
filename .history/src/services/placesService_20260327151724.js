@@ -3,13 +3,11 @@ const API_KEY = "d18b91c9ec4b4ba5b5249dc23ac34be6";
 function getReadableCategory(categories) {
   if (!categories || categories.length === 0) return "Study Spot";
 
-  const allCategories = categories.join(" ").toLowerCase();
+  const category = categories[0];
 
-  if (allCategories.includes("cafe")) return "Cafe";
-  if (allCategories.includes("library")) return "Library";
-  if (allCategories.includes("university")) return "University";
-  if (allCategories.includes("college")) return "University";
-  if (allCategories.includes("school")) return "Study Spot";
+  if (category.includes("cafe")) return "Cafe";
+  if (category.includes("library")) return "Library";
+  if (category.includes("university")) return "University";
 
   return "Study Spot";
 }

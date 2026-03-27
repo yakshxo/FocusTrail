@@ -114,12 +114,12 @@ export default function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.heading}>Welcome Back!</Text>
 
       {/*  Motivational Quote */}
     <View style={styles.quoteContainer}>
     <Text style={styles.quoteMark}>“</Text>
     <Text style={styles.quoteText}>{quote}</Text>
-    <View style={styles.quoteDivider} />
     </View>
 
       <Text style={styles.subheading}>
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-quoteContainer: {
+  quoteContainer: {
   marginBottom: 20,
   paddingVertical: 10,
   paddingHorizontal: 6,
@@ -203,6 +203,7 @@ quoteMark: {
   opacity: 0.2,
   marginBottom: -10,
 },
+
 quoteText: {
   fontSize: 16,
   fontStyle: "italic",
@@ -210,13 +211,6 @@ quoteText: {
   textAlign: "center",
   lineHeight: 24,
   paddingHorizontal: 10,
-},
-quoteDivider: {
-  height: 1,
-  backgroundColor: "#e0e0e0",
-  marginVertical: 12,
-  width: "60%",
-  alignSelf: "center",
 },
 
   card: {
