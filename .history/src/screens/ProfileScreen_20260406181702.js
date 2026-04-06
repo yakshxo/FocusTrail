@@ -252,7 +252,8 @@ const loadFavorites = async () => {
         <Text style={styles.featureItem}>• Public photo sharing for study spots (cloud storage)</Text>
         <Text style={styles.featureItem}>• Average ratings for each location based on public reviews</Text>
         <Text style={styles.featureItem}>• Smart recommendations based on focus history</Text>
-        <Text style={styles.featureItem}>• AI-powered productivity insights</Text>
+        <Text style={styles.featureItem}>• Dedicated favorites feature (save preferred spots)</Text>
+        <Text style={styles.featureItem}>• Advanced productivity analytics</Text>
       </View>
 
       <View style={styles.card}>

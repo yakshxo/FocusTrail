@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { auth } from "../../firebase";
 import { getUserSessionsFromFirestore } from "../services/sessionService";
 import { getFavorites, removeFavorite } from "../services/favoritesService";
 import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback } from "react";
 
 const ACTIVE_SESSION_KEY = "activeStudySession";
 const SAVED_SESSIONS_KEY = "savedStudySessions";
@@ -28,12 +29,10 @@ export default function ProfileScreen() {
   const [favorites, setFavorites] = useState([]);
   
 
-useFocusEffect(
-  useCallback(() => {
-    loadProfileData();
-    loadFavorites();
-  }, [])
-);
+useEffect(() => {
+  loadProfileData();
+  loadFavorites();
+}, []);
 
 const loadProfileData = async () => {
   try {
@@ -248,15 +247,16 @@ const loadFavorites = async () => {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>Coming Next</Text>
-        <Text style={styles.featureItem}>• Public photo sharing for study spots (cloud storage)</Text>
-        <Text style={styles.featureItem}>• Average ratings for each location based on public reviews</Text>
-        <Text style={styles.featureItem}>• Smart recommendations based on focus history</Text>
-        <Text style={styles.featureItem}>• AI-powered productivity insights</Text>
+        <Text style={styles.label}>Coming Next</Text>
+        <Text style={styles.item}>• Camera feature for study spot photos</Text>
+        <Text style={styles.item}>• Review system for study locations</Text>
+        <Text style={styles.item}>• Ratings (coffee, noise, seating, power outlets)</Text>
+        <Text style={styles.item}>• Dedicated favorites feature (save preferred spots)</Text>
+        <Text style={styles.item}>• Advanced productivity analytics</Text>
       </View>
 
       <View style={styles.card}>
-  <Text style={styles.cardLabel}>Favorite Study Spots</Text>
+  <Text style={styles.cardLabel}>Saved Places</Text>
 
   {favorites.length === 0 ? (
     <Text style={styles.cardText}>No favorites yet.</Text>

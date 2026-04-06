@@ -16,7 +16,7 @@ import { auth } from "../../firebase";
 import { fetchNearbyStudyPlaces } from "../services/placesService";
 import { getUserSessionsFromFirestore } from "../services/sessionService";
 import { useNavigation } from "@react-navigation/native";
-import { addFavorite, getFavorites } from "../services/favoritesService";
+import { addFavorite } from "../services/favoritesService";
 
 export default function MapScreen() {
   const navigation = useNavigation();
@@ -398,7 +398,7 @@ const handlePlacePress = async (place) => {
       </View>
 
       <View style={styles.infoCard}>
-  <Text style={styles.infoTitle}>Your Study Spots</Text>
+  <Text style={styles.infoTitle}>Saved Study Location Markers</Text>
 
   {sortedSavedMarkers.length > 0 ? (
     sortedSavedMarkers.map((spot) => (

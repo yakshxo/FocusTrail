@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import { signOut, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../firebase";
 import { getUserSessionsFromFirestore } from "../services/sessionService";
 import { getFavorites, removeFavorite } from "../services/favoritesService";
-import { useFocusEffect } from "@react-navigation/native";
 
 const ACTIVE_SESSION_KEY = "activeStudySession";
 const SAVED_SESSIONS_KEY = "savedStudySessions";
@@ -26,96 +25,80 @@ export default function ProfileScreen() {
   const [averageFocus, setAverageFocus] = useState(0);
   const [bestEnvironment, setBestEnvironment] = useState("No data yet");
   const [favorites, setFavorites] = useState([]);
-  
 
-useFocusEffect(
-  useCallback(() => {
+  useEffect(() => {
     loadProfileData();
-    loadFavorites();
-  }, [])
-);
+  }, []);
 
-const loadProfileData = async () => {
-  try {
-    setLoading(true);
+  const loadProfileData = async () => {
+    try {
+      setLoading(true);
 
-    if (!auth.currentUser) {
-      setEmail("");
-      setSessionCount(0);
-      setTotalMinutes(0);
-      setAverageFocus(0);
-      setBestEnvironment("No data yet");
-      return;
+      if (!auth.currentUser) {
+        setEmail("");
+        setSessionCount(0);
+        setTotalMinutes(0);
+        setAverageFocus(0);
+        setBestEnvironment("No data yet");
+        return;
+      }
+
+      setEmail(auth.currentUser.email || "No email found");
+
+      const sessions = await getUserSessionsFromFirestore(auth.currentUser.uid);
+
+      setSessionCount(sessions.length);
+
+      const totalStudyMinutes = sessions.reduce(
+        (sum, session) => sum + (session.durationMinutes || 0),
+        0
+      );
+      setTotalMinutes(totalStudyMinutes);
+
+      if (sessions.length > 0) {
+        const avg =
+          sessions.reduce((sum, session) => sum + (session.focusRating || 0), 0) /
+          sessions.length;
+        setAverageFocus(Number(avg.toFixed(1)));
+
+        const environmentScores = {};
+        sessions.forEach((session) => {
+          const environment = session.environment || session.locationName || "Unknown";
+
+          if (!environmentScores[environment]) {
+            environmentScores[environment] = { total: 0, count: 0 };
+          }
+
+          environmentScores[environment].total += session.focusRating || 0;
+          environmentScores[environment].count += 1;
+        });
+
+        let bestEnv = "No data yet";
+        let bestScore = -1;
+
+        Object.keys(environmentScores).forEach((environment) => {
+          const avgEnv =
+            environmentScores[environment].total /
+            environmentScores[environment].count;
+
+          if (avgEnv > bestScore) {
+            bestScore = avgEnv;
+            bestEnv = environment;
+          }
+        });
+
+        setBestEnvironment(bestEnv);
+      } else {
+        setAverageFocus(0);
+        setBestEnvironment("No data yet");
+      }
+    } catch (error) {
+      console.log("Profile data load error:", error);
+      Alert.alert("Error", "Could not load profile data.");
+    } finally {
+      setLoading(false);
     }
-
-    setEmail(auth.currentUser.email || "No email found");
-
-    const sessions = await getUserSessionsFromFirestore(auth.currentUser.uid);
-
-    setSessionCount(sessions.length);
-
-    const totalStudyMinutes = sessions.reduce(
-      (sum, session) => sum + (session.durationMinutes || 0),
-      0
-    );
-    setTotalMinutes(totalStudyMinutes);
-
-    if (sessions.length > 0) {
-      const avg =
-        sessions.reduce((sum, session) => sum + (session.focusRating || 0), 0) /
-        sessions.length;
-      setAverageFocus(Number(avg.toFixed(1)));
-
-      const environmentScores = {};
-      sessions.forEach((session) => {
-        const environment =
-          session.environment || session.locationName || "Unknown";
-
-        if (!environmentScores[environment]) {
-          environmentScores[environment] = { total: 0, count: 0 };
-        }
-
-        environmentScores[environment].total += session.focusRating || 0;
-        environmentScores[environment].count += 1;
-      });
-
-      let bestEnv = "No data yet";
-      let bestScore = -1;
-
-      Object.keys(environmentScores).forEach((environment) => {
-        const avgEnv =
-          environmentScores[environment].total /
-          environmentScores[environment].count;
-
-        if (avgEnv > bestScore) {
-          bestScore = avgEnv;
-          bestEnv = environment;
-        }
-      });
-
-      setBestEnvironment(bestEnv);
-    } else {
-      setAverageFocus(0);
-      setBestEnvironment("No data yet");
-    }
-  } catch (error) {
-    console.log("Profile data load error:", error);
-    Alert.alert("Error", "Could not load profile data.");
-  } finally {
-    setLoading(false);
-  }
-};
-
-const loadFavorites = async () => {
-  try {
-    if (!auth.currentUser) return;
-
-    const data = await getFavorites(auth.currentUser.uid);
-    setFavorites(data);
-  } catch (error) {
-    console.log("Favorites load error:", error);
-  }
-};
+  };
 
   const formatMinutes = (minutes) => {
     if (!minutes || minutes <= 0) return "0 min";
@@ -248,37 +231,13 @@ const loadFavorites = async () => {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>Coming Next</Text>
-        <Text style={styles.featureItem}>• Public photo sharing for study spots (cloud storage)</Text>
-        <Text style={styles.featureItem}>• Average ratings for each location based on public reviews</Text>
-        <Text style={styles.featureItem}>• Smart recommendations based on focus history</Text>
-        <Text style={styles.featureItem}>• AI-powered productivity insights</Text>
+        <Text style={styles.label}>Coming Next</Text>
+        <Text style={styles.item}>• Camera feature for study spot photos</Text>
+        <Text style={styles.item}>• Review system for study locations</Text>
+        <Text style={styles.item}>• Ratings (coffee, noise, seating, power outlets)</Text>
+        <Text style={styles.item}>• Dedicated favorites feature (save preferred spots)</Text>
+        <Text style={styles.item}>• Advanced productivity analytics</Text>
       </View>
-
-      <View style={styles.card}>
-  <Text style={styles.cardLabel}>Favorite Study Spots</Text>
-
-  {favorites.length === 0 ? (
-    <Text style={styles.cardText}>No favorites yet.</Text>
-  ) : (
-    favorites.map((fav) => (
-      <View key={fav.id} style={styles.favoriteRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.favoritePlaceTitle}>{fav.title}</Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={async () => {
-            await removeFavorite(fav.id);
-            loadFavorites();
-          }}
-        >
-          <Text style={styles.removeFavoriteText}>Remove</Text>
-        </TouchableOpacity>
-      </View>
-    ))
-  )}
-</View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={loadProfileData}>
         <Text style={styles.primaryButtonText}>Refresh Profile Data</Text>
@@ -398,24 +357,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  favoriteRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingVertical: 8,
-  borderBottomWidth: 1,
-  borderBottomColor: "#eee",
-},
-
-favoritePlaceTitle: {
-  fontSize: 15,
-  fontWeight: "600",
-  color: "#222",
-},
-
-removeFavoriteText: {
-  color: "#b23b3b",
-  fontSize: 14,
-  fontWeight: "600",
-},
 });

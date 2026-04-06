@@ -398,7 +398,7 @@ const handlePlacePress = async (place) => {
       </View>
 
       <View style={styles.infoCard}>
-  <Text style={styles.infoTitle}>Your Study Spots</Text>
+  <Text style={styles.infoTitle}>Most Studied Locations</Text>
 
   {sortedSavedMarkers.length > 0 ? (
     sortedSavedMarkers.map((spot) => (

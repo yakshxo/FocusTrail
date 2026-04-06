@@ -16,7 +16,7 @@ import { auth } from "../../firebase";
 import { fetchNearbyStudyPlaces } from "../services/placesService";
 import { getUserSessionsFromFirestore } from "../services/sessionService";
 import { useNavigation } from "@react-navigation/native";
-import { addFavorite, getFavorites } from "../services/favoritesService";
+import { addFavorite } from "../services/favoritesService";
 
 export default function MapScreen() {
   const navigation = useNavigation();
@@ -26,7 +26,6 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
   const [savedStudyMarkers, setSavedStudyMarkers] = useState([]);
-  const [favorites, setFavorites] = useState([]);
 
   useEffect(() => {
     fetchLocationAndData();
@@ -113,11 +112,7 @@ export default function MapScreen() {
       setNearbyPlaces(sortedPlaces);
 
       if (auth.currentUser) {
-  // LOAD FAVORITES
-  const favs = await getFavorites(auth.currentUser.uid);
-  setFavorites(favs);
-
-  const sessions = await getUserSessionsFromFirestore(auth.currentUser.uid);
+        const sessions = await getUserSessionsFromFirestore(auth.currentUser.uid);
 
         const uniqueMarkers = sessions
           .filter(
@@ -221,38 +216,39 @@ const handlePlacePress = async (place) => {
   focusOnPlace(place);
 
   Alert.alert(place.title, "Choose an action", [
-  {
-    text: "View Details",
-    onPress: () => navigation.navigate("PlaceDetails", { place }),
-  },
-  {
-    text: "Navigate",
-    onPress: async () => {
-      if (Platform.OS === "ios") {
-        Alert.alert("Navigation", "Choose an app", [
-          { text: "Apple Maps", onPress: () => openAppleMaps(place) },
-          { text: "Google Maps", onPress: () => openGoogleMaps(place) },
-          { text: "Cancel", style: "cancel" },
-        ]);
-      } else {
-        await openGoogleMaps(place);
-      }
+    {
+      text: "View Details",
+      onPress: () =>
+        navigation.navigate("PlaceDetails", { place }),
     },
-  },
-  {
-    text: "Add to Favorites ❤️",
-    onPress: async () => {
-      await addFavorite(auth.currentUser.uid, place);
-      const updatedFavs = await getFavorites(auth.currentUser.uid);
-      setFavorites(updatedFavs); // 🔥 refresh UI instantly
-      Alert.alert("Saved", "Added to favorites");
+    {
+      text: "Navigate",
+      onPress: async () => {
+        if (Platform.OS === "ios") {
+          Alert.alert("Navigation", "Choose an app", [
+            {
+              text: "Apple Maps",
+              onPress: () => openAppleMaps(place),
+            },
+            {
+              text: "Google Maps",
+              onPress: () => openGoogleMaps(place),
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+          ]);
+        } else {
+          await openGoogleMaps(place);
+        }
+      },
     },
-  },
-  {
-    text: "Cancel",
-    style: "cancel",
-  },
-]);
+    {
+      text: "Cancel",
+      style: "cancel",
+    },
+  ]);
 };
 
   const formatDistance = (distanceKm) => {
@@ -369,61 +365,47 @@ const handlePlacePress = async (place) => {
         <Text style={styles.infoTitle}>Nearby Study Places</Text>
         {nearbyPlaces.length > 0 ? (
           nearbyPlaces.map((spot) => (
-
-  <View key={spot.id} style={styles.placeRow}>
-  
-  <TouchableOpacity
-    style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
-    onPress={() => handlePlacePress(spot)}
-  >
-    <View style={{ flex: 1 }}>
-      <Text style={styles.placeTitle}>{spot.title}</Text>
-      <Text style={styles.placeDescription}>
-        {spot.description} • {formatDistance(spot.distanceKm)}
-      </Text>
-    </View>
-
-    {/* ❤️ SHOW ONLY IF FAVORITED */}
-    {favorites.some((f) => f.placeId === spot.id) && (
-      <Text style={styles.favoriteText}>❤️</Text>
-    )}
-
-  </TouchableOpacity>
-
-</View>
-))
+            <TouchableOpacity
+              key={spot.id}
+              style={styles.placeRow}
+              onPress={() => handlePlacePress(spot)}
+            >
+              <View style={styles.placeTextWrap}>
+                <Text style={styles.placeTitle}>{spot.title}</Text>
+                <Text style={styles.placeDescription}>
+                  {spot.description} • {formatDistance(spot.distanceKm)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
         ) : (
           <Text style={styles.spotItem}>No nearby places found.</Text>
         )}
       </View>
 
       <View style={styles.infoCard}>
-  <Text style={styles.infoTitle}>Your Study Spots</Text>
-
-  {sortedSavedMarkers.length > 0 ? (
-    sortedSavedMarkers.map((spot) => (
-      <View key={spot.key} style={styles.placeRow}>
-
-        {/* LEFT SIDE (clickable) */}
-        <TouchableOpacity
-          style={{ flex: 1 }}
-          onPress={() => handlePlacePress(spot)}
-        >
-          <View style={styles.placeTextWrap}>
-            <Text style={styles.placeTitle}>{spot.title}</Text>
-            <Text style={styles.placeDescription}>
-              {spot.description} • {formatDistance(spot.distanceKm)}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        <Text style={styles.infoTitle}>Saved Study Location Markers</Text>
+        {sortedSavedMarkers.length > 0 ? (
+          sortedSavedMarkers.map((spot) => (
+            <TouchableOpacity
+              key={spot.key}
+              style={styles.placeRow}
+              onPress={() => handlePlacePress(spot)}
+            >
+              <View style={styles.placeTextWrap}>
+                <Text style={styles.placeTitle}>{spot.title}</Text>
+                <Text style={styles.placeDescription}>
+                  {spot.description} • {formatDistance(spot.distanceKm)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.spotItem}>No saved study locations yet.</Text>
+        )}
       </View>
-    ))
-  ) : (
-    <Text style={styles.spotItem}>No saved study locations yet.</Text>
-  )}
-</View>
-</ScrollView>
-);
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -536,12 +518,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 16,
   },
-  favoriteButton: {
-  paddingHorizontal: 10,
-  justifyContent: "center",
-},
-
-favoriteText: {
-  fontSize: 20,
-},
 });
